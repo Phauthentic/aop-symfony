@@ -1,5 +1,8 @@
 parameters:
     level: max
+    # The native lazy object API (ReflectionClass::isUninitializedLazyObject() and friends) is PHP 8.4; tests use it
+    # behind a runtime check, and the weaving pass only relies on it where the stack supports native lazy objects.
+    phpVersion: 80400
     paths:
         - src
         - tests
