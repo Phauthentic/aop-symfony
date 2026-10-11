@@ -8,15 +8,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.3', '8.4']
+        php: ['8.3', '8.4', '8.5']
+        symfony: ['7.4.*', '8.0.*']
+        exclude:
+          - php: '8.3'
+            symfony: '8.0.*'
+    name: PHP ${{ matrix.php }} / Symfony ${{ matrix.symfony }}
     steps:
       - uses: actions/checkout@v4
-      - uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.AOP_DEPLOY_KEY }}
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: xdebug
-      - run: composer install --no-interaction --prefer-dist
+      - run: >
+          composer update --no-interaction --prefer-dist
+          --with 'symfony/config:${{ matrix.symfony }}'
+          --with 'symfony/console:${{ matrix.symfony }}'
+          --with 'symfony/dependency-injection:${{ matrix.symfony }}'
+          --with 'symfony/http-kernel:${{ matrix.symfony }}'
+          --with 'symfony/event-dispatcher:${{ matrix.symfony }}'
+          --with 'symfony/framework-bundle:${{ matrix.symfony }}'
+          --with 'symfony/var-exporter:${{ matrix.symfony }}'
       - run: composer check

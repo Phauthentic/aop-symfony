@@ -14,6 +14,15 @@ use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 final class PhauthenticAopBundle extends Bundle
 {
+    /**
+     * Bundles are constructed before the container: from here on a proxy class requested before any woven service
+     * ran (a native lazy ghost created in another bundle's boot()) is found through the pointer file next to the container.
+     */
+    public function __construct()
+    {
+        ProxyAutoloader::registerDiscovery();
+    }
+
     public function build(ContainerBuilder $container): void
     {
         $container->registerAttributeForAutoconfiguration(

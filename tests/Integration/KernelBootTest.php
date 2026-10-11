@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Phauthentic\AOP\Symfony\Tests\Integration;
 
 use Phauthentic\AOP\Proxy\AdvisedInterface;
+use Phauthentic\AOP\Symfony\Compiler\ProxyWeavingPass;
 use Phauthentic\AOP\Symfony\Tests\Fixtures\Aspect\LogAspect;
 use Phauthentic\AOP\Symfony\Tests\Fixtures\Log;
 use Phauthentic\AOP\Symfony\Tests\Fixtures\Service\Auditable;
@@ -146,18 +147,26 @@ final class KernelBootTest extends TestCase
     public function lazyServiceStaysLazyAndIsAdvised(): void
     {
         $service = self::container()->get(LazyService::class);
-
-        // A lazy proxy of the target class wrapping the advised instance, not a ghost of the proxy class: see the
-        // "Lazy services" section of docs/symfony.md for why.
-        self::assertInstanceOf(LazyObjectInterface::class, $service);
         self::assertInstanceOf(LazyService::class, $service);
-        self::assertNotInstanceOf(AdvisedInterface::class, $service);
-        self::assertFalse($service->isLazyObjectInitialized());
         self::assertSame([], Log::$entries);
 
-        self::assertSame('pong', $service->ping());
+        if (ProxyWeavingPass::nativeLazyObjects()) {
+            // A native lazy ghost of the proxy class: the service itself is the advised object.
+            $reflection = new \ReflectionClass($service);
+            self::assertInstanceOf(AdvisedInterface::class, $service);
+            self::assertTrue($reflection->isUninitializedLazyObject($service));
+            self::assertSame('pong', $service->ping());
+            self::assertFalse($reflection->isUninitializedLazyObject($service));
+        } else {
+            // A generated lazy proxy of the target class wrapping the advised instance: see the "Lazy services"
+            // section of docs/symfony.md in the core repository for why.
+            self::assertInstanceOf(LazyObjectInterface::class, $service);
+            self::assertNotInstanceOf(AdvisedInterface::class, $service);
+            self::assertFalse($service->isLazyObjectInitialized());
+            self::assertSame('pong', $service->ping());
+            self::assertInstanceOf(AdvisedInterface::class, $service->initializeLazyObject());
+        }
         self::assertSame(['lazy constructed', 'around>ping', 'ping', 'around<'], Log::$entries);
-        self::assertInstanceOf(AdvisedInterface::class, $service->initializeLazyObject());
     }
 
     #[Test]

@@ -12,4 +12,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Compile-time proxy weaving: interface proxies, subclass proxies and opt-in `strip_final` for final classes.
 - Self-invocation scanning of woven services.
 - `debug:aop` console command listing aspects, advisors and runtime advice.
-- Lazy service support for woven services.
+- Lazy service support for woven services: native lazy ghosts of the proxy class on PHP 8.4 with Symfony 7.3+, a lazy proxy of the target class elsewhere.
+- Support for Symfony 7.2 to 8.0.

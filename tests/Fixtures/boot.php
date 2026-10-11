@@ -29,7 +29,7 @@ assert($plain instanceof PlainService && $lazy instanceof LazyService);
 $hot = $container->get('fixture.hot');
 assert($hot instanceof PlainService);
 
-$result = ['early' => $early, 'greet' => $plain->greet('x'), 'hot' => $hot->greet('y'), 'lazy' => $lazy instanceof LazyObjectInterface];
+$result = ['early' => $early, 'greet' => $plain->greet('x'), 'hot' => $hot->greet('y'), 'lazy' => $lazy instanceof LazyObjectInterface || (\PHP_VERSION_ID >= 80400 && new ReflectionClass(LazyService::class)->isUninitializedLazyObject($lazy))];
 $result['ping'] = $lazy->ping();
 $result['log'] = Log::$entries;
 

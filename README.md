@@ -8,8 +8,8 @@ It collects aspects from the container, weaves proxies at compile time and adds 
 Both packages are installed from GitHub:
 
 ```bash
-composer config repositories.phauthentic-aop vcs git@github.com:Phauthentic/aop.git
-composer config repositories.phauthentic-symfony-aop vcs git@github.com:Phauthentic/symfony-aop.git
+composer config repositories.phauthentic-aop vcs https://github.com/Phauthentic/aop.git
+composer config repositories.phauthentic-symfony-aop vcs https://github.com/Phauthentic/aop-symfony.git
 composer require phauthentic/symfony-aop:dev-main
 ```
 
@@ -51,9 +51,8 @@ composer check
 
 `composer check` runs the code style check, PHPStan at level max and the test suite with a coverage gate of 85 %.
 
-The core repository is private, so CI needs the `AOP_DEPLOY_KEY` secret.
-It must hold the private half of a read-only deploy key registered on `Phauthentic/aop`.
-Without it `composer install` cannot clone the core package.
+CI runs the check on PHP 8.3, 8.4 and 8.5 against Symfony 7.4 and 8.0 (Symfony 8 requires PHP 8.4).
+To test against one Symfony line locally, update the Symfony packages with a version constraint, for example `composer update --with 'symfony/http-kernel:8.0.*' --with 'symfony/framework-bundle:8.0.*'`.
 
 ## License
 

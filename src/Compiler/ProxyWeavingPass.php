@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Phauthentic\AOP\Symfony\Compiler;
 
 use Composer\Autoload\ClassLoader;
+use Composer\InstalledVersions;
 use Phauthentic\AOP\Advisor\Advisor;
 use Phauthentic\AOP\Advisor\AdvisorChainFactory;
 use Phauthentic\AOP\Advisor\IntroductionAdvisor;
@@ -138,14 +139,17 @@ final class ProxyWeavingPass implements CompilerPassInterface
             if (!$stripped || null !== $originalFile) {
                 ProxyClassWriter::load($proxy);
             }
-            $autoloadFile ??= self::writeAutoloadFile($proxyDir);
+            $autoloadFile ??= self::writeAutoloadFile($proxyDir, self::stringParameter($container, 'kernel.build_dir'));
 
             $setRuntime = ['__aopSetRuntime', [new Reference(self::RUNTIME)]];
             if (ProxyStrategy::SUBCLASS === $strategy) {
                 $definition->setClass($proxy->className)->setFile($autoloadFile)->addMethodCall(...$setRuntime);
-                if ($definition->isLazy() && !$definition->hasTag('proxy')) {
-                    // A lazy ghost would extend the proxy class before the service includes the autoload file; a
-                    // lazy proxy of the target class creates the proxied instance in the service factory instead.
+                if ($definition->isLazy() && !$definition->hasTag('proxy') && !self::nativeLazyObjects()) {
+                    // Without native lazy objects, a generated lazy ghost class would extend the proxy class before the
+                    // service includes the autoload file; a lazy proxy of the target class, created in the service
+                    // factory, avoids that. With native lazy objects the service is a lazy ghost of the proxy class:
+                    // the proxy initializes it before the first advised call, and ProxyAutoloader finds the proxy
+                    // directory next to the container file (see the pointer file written below).
                     $definition->addTag('proxy', ['interface' => $class]);
                 }
             } else {
@@ -239,8 +243,24 @@ final class ProxyWeavingPass implements CompilerPassInterface
             : [null, sprintf('an interface proxy would hide method %s, which tag %s may reference', implode(', ', $hidden), implode(', ', $tags))];
     }
 
-    private static function writeAutoloadFile(string $dir): string
+    /**
+     * Symfony 7.3+ on PHP 8.4 builds lazy services with `ReflectionClass::newLazyGhost()` and rejects the `proxy` tag.
+     */
+    public static function nativeLazyObjects(): bool
     {
+        $version = InstalledVersions::getVersion('symfony/dependency-injection') ?? '0';
+
+        return \PHP_VERSION_ID >= 80400 && version_compare($version, '7.3', '>=');
+    }
+
+    /**
+     * Also writes the pointer file next to the dumped container, so {@see ProxyAutoloader} can find the proxy
+     * directory in a process that needs a proxy class before any woven service included the autoload file.
+     */
+    private static function writeAutoloadFile(string $dir, string $buildDir): string
+    {
+        self::writeAtomically($buildDir.'/'.ProxyAutoloader::POINTER_FILE, $dir);
+
         return self::writeAtomically($dir.'/'.ProxyAutoloader::FILE, ProxyAutoloader::fileContents());
     }
 

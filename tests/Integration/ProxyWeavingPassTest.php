@@ -8,6 +8,7 @@ use Phauthentic\AOP\Exception\AspectDefinitionException;
 use Phauthentic\AOP\Proxy\AdvisedInterface;
 use Phauthentic\AOP\Proxy\ProxyClassName;
 use Phauthentic\AOP\Proxy\ProxyClassWriter;
+use Phauthentic\AOP\Symfony\Compiler\ProxyWeavingPass;
 use Phauthentic\AOP\Symfony\ProxyAutoloader;
 use Phauthentic\AOP\Symfony\Tests\Fixtures\Aspect\ArgsAspect;
 use Phauthentic\AOP\Symfony\Tests\Fixtures\Aspect\AuditAspect;
@@ -115,10 +116,20 @@ final class ProxyWeavingPassTest extends TestCase
     #[Test]
     public function lazyServiceGetsALazyProxyOfTheTargetClass(): void
     {
-        $definition = $this->compiled()->getDefinition(LazyService::class);
+        $container = $this->compiled();
+        $definition = $container->getDefinition(LazyService::class);
 
         self::assertTrue($definition->isLazy());
-        self::assertSame([['interface' => LazyService::class]], $definition->getTag('proxy'));
+        self::assertStringStartsWith(ProxyClassName::NAMESPACE_PREFIX, (string) $definition->getClass());
+        if (ProxyWeavingPass::nativeLazyObjects()) {
+            self::assertSame([], $definition->getTag('proxy'), 'a native lazy ghost of the proxy class needs no proxy tag');
+        } else {
+            self::assertSame([['interface' => LazyService::class]], $definition->getTag('proxy'));
+        }
+
+        $buildDir = $container->getParameterBag()->resolveValue('%kernel.build_dir%');
+        self::assertIsString($buildDir);
+        self::assertSame($buildDir.'/phauthentic_aop', file_get_contents($buildDir.'/'.ProxyAutoloader::POINTER_FILE));
     }
 
     #[Test]

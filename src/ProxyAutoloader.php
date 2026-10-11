@@ -14,6 +14,10 @@ use Phauthentic\AOP\Proxy\ProxyClassWriter;
  * Every woven service definition includes the proxy directory's `autoload.php` (see {@see self::FILE}), which registers
  * that directory, so a proxy class is loadable before its service is instantiated, also during other bundles' boot().
  *
+ * A native lazy ghost (Symfony 7.3+ on PHP 8.4) is created from the proxy class through reflection before the service
+ * includes that file. For that case the weaving pass writes a pointer file next to the dumped container, and the loader
+ * registered by {@see self::registerDiscovery()} looks for it beside every included `*Container.php` file.
+ *
  * With `strip_final`, a directory also maps final classes to copies without `final` (see {@see self::UNFINALIZED_MAP});
  * those are loaded by an autoloader prepended to Composer's, so the copy wins if nothing loaded the class before.
  */
@@ -22,6 +26,12 @@ final class ProxyAutoloader
     public const FILE = 'autoload.php';
     public const UNFINALIZED_DIR = 'unfinalized';
     public const UNFINALIZED_MAP = 'map.php';
+    public const POINTER_FILE = 'phauthentic_aop.proxy_dir';
+
+    private static bool $registered = false;
+
+    /** @var array<string, true> container files already checked for a pointer file */
+    private static array $scanned = [];
 
     /** @var array<string, ProxyClassWriter> */
     private static array $writers = [];
@@ -35,11 +45,20 @@ final class ProxyAutoloader
     /** @var array<string, string> class => original file, for classes loaded from their unfinalized copy */
     private static array $loadedUnfinalized = [];
 
-    public static function register(string $dir): void
+    /**
+     * Registers the loader without a directory; directories are then discovered from pointer files on the first miss.
+     */
+    public static function registerDiscovery(): void
     {
-        if ([] === self::$writers) {
+        if (!self::$registered) {
+            self::$registered = true;
             spl_autoload_register(self::load(...));
         }
+    }
+
+    public static function register(string $dir): void
+    {
+        self::registerDiscovery();
         if (isset(self::$writers[$dir])) {
             return;
         }
@@ -88,14 +107,50 @@ final class ProxyAutoloader
         if (!str_starts_with($class, ProxyClassName::NAMESPACE_PREFIX)) {
             return;
         }
+        if (!self::loadFromRegisteredDirectories($class) && self::discoverDirectories()) {
+            self::loadFromRegisteredDirectories($class);
+        }
+    }
+
+    private static function loadFromRegisteredDirectories(string $class): bool
+    {
         foreach (self::$writers as $writer) {
             if (is_file($file = $writer->pathFor($class))) {
                 self::assertTargetIsNotFinal($class);
                 require $file;
 
-                return;
+                return true;
             }
         }
+
+        return false;
+    }
+
+    /**
+     * Registers the proxy directories named by pointer files next to the container files included so far.
+     *
+     * @return bool whether a new directory was registered
+     */
+    private static function discoverDirectories(): bool
+    {
+        $found = false;
+        foreach (get_included_files() as $file) {
+            if (isset(self::$scanned[$file]) || !str_ends_with($file, 'Container.php')) {
+                continue;
+            }
+            self::$scanned[$file] = true;
+            $pointer = \dirname($file).'/'.self::POINTER_FILE;
+            if (!is_file($pointer)) {
+                continue;
+            }
+            $dir = trim((string) file_get_contents($pointer));
+            if ('' !== $dir && !isset(self::$writers[$dir]) && is_dir($dir)) {
+                self::register($dir);
+                $found = true;
+            }
+        }
+
+        return $found;
     }
 
     public static function loadUnfinalized(string $class): void
