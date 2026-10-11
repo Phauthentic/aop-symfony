@@ -46,24 +46,16 @@ bin/console debug:aop
 
 CI runs PHP 8.3, 8.4 and 8.5 against Symfony 7.4 and 8.0.
 
-The bundle behaves the same on every stack except for `lazy: true` services woven with the subclass strategy:
-
-- **Symfony 7.3 or newer on PHP 8.4 or newer** builds lazy services as native lazy objects and rejects the generated lazy proxies of older versions.
-  A lazy woven service is then a native lazy ghost of the proxy class itself.
-  The object the container hands out is the advised object: it is an `AdvisedInterface`, it implements interfaces added with `#[DeclareParents]`, and it initializes itself before the first advised call.
-- **PHP 8.3, or Symfony 7.2** has no native lazy objects.
-  The service is a generated lazy proxy of the target class that forwards to the advised instance, so the outer object is not an `AdvisedInterface`; call `initializeLazyObject()` to reach the advised instance.
-
-PHP 8.5 reports the resolved class name instead of `self` for a `self` return type.
-Pointcut type patterns match both forms, so `execution(self App\Service\Foo::*(..))` and `execution(App\Service\Foo App\Service\Foo::*(..))` behave the same on every version.
-
-The "Lazy services" and "Proxy autoloading" sections of the [Symfony documentation](https://github.com/Phauthentic/aop/blob/main/docs/symfony.md) describe the mechanics.
+The bundle behaves the same on every stack except for `lazy: true` services woven with the subclass strategy.
+The [compatibility section](docs/symfony.md#compatibility) of the Symfony documentation describes the difference, native lazy objects, and PHP 8.5.
 
 ## Documentation
 
-Full documentation lives in the aop repository:
-[Symfony integration](https://github.com/Phauthentic/aop/blob/main/docs/symfony.md)
-and the [documentation index](https://github.com/Phauthentic/aop/blob/main/docs/README.md).
+- [Documentation index](docs/README.md)
+- [Symfony bundle](docs/symfony.md): configuration, how weaving works, `strip_final`, `debug:aop`, troubleshooting
+- [Core documentation](https://github.com/Phauthentic/aop/blob/main/docs/README.md): pointcut language, advice, proxies, introductions, standalone usage
+
+A runnable demo application lives in [Phauthentic/aop-symfony-example](https://github.com/Phauthentic/aop-symfony-example).
 
 ## Development
 
