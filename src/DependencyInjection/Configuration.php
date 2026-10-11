@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Phauthentic\AOP\Symfony\DependencyInjection;
 
-use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
@@ -14,9 +13,6 @@ final class Configuration implements ConfigurationInterface
     {
         $tree = new TreeBuilder('phauthentic_aop');
         $root = $tree->getRootNode();
-        if (!$root instanceof ArrayNodeDefinition) {
-            throw new \LogicException('The root node must be an array node.');
-        }
         $children = $root->children();
 
         $children->booleanNode('enabled')->defaultTrue();
